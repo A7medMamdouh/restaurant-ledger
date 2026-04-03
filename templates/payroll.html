@@ -1,0 +1,119 @@
+{% extends 'base.html' %}
+
+{% block title %}Payroll{% endblock %}
+
+{% block content %}
+
+<!-- CARDS -->
+<div class="cards-grid" style="grid-template-columns:repeat(3,1fr)">
+  <div class="card">
+    <div class="card-label">Total Payroll</div>
+    <div class="card-value accent mono" id="pr-total">0.00</div>
+  </div>
+  <div class="card green">
+    <div class="card-label">Paid</div>
+    <div class="card-value green mono" id="pr-paid">0.00</div>
+  </div>
+  <div class="card red">
+    <div class="card-label">Accrued</div>
+    <div class="card-value red mono" id="pr-accrued">0.00</div>
+  </div>
+</div>
+
+<!-- ADD PAYROLL FORM -->
+<div class="table-wrap" style="margin-bottom:24px">
+  <div class="table-header">
+    <div class="table-title">Add Payroll Record</div>
+  </div>
+  <div style="padding:20px">
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:14px">
+
+      <div style="display:flex;flex-direction:column;gap:6px">
+        <label style="font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--text3)">Month</label>
+        <input type="month" id="pr-month" style="background:var(--surface2);border:1px solid var(--border);border-radius:4px;padding:9px 12px;color:var(--text);font-size:13px;outline:none">
+      </div>
+
+      <div style="display:flex;flex-direction:column;gap:6px">
+        <label style="font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--text3)">Staff Role</label>
+        <select id="pr-role" style="background:var(--surface2);border:1px solid var(--border);border-radius:4px;padding:9px 12px;color:var(--text);font-size:13px;outline:none">
+          <option value="Restaurant Manager">Restaurant Manager</option>
+          <option value="Project Manager">Project Manager</option>
+          <option value="HR Manager">HR Manager</option>
+          <option value="Procurement Manager">Procurement Manager</option>
+          <option value="Kitchen Chief">Kitchen Chief</option>
+          <option value="Chief of Receiving">Chief of Receiving</option>
+          <option value="Stock Keeper">Stock Keeper</option>
+          <option value="Services & Cleaning">Services & Cleaning</option>
+        </select>
+      </div>
+
+      <div style="display:flex;flex-direction:column;gap:6px">
+        <label style="font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--text3)">Amount (EGP)</label>
+        <input type="number" id="pr-amount" placeholder="0.00" step="0.01" style="background:var(--surface2);border:1px solid var(--border);border-radius:4px;padding:9px 12px;color:var(--text);font-size:13px;outline:none">
+      </div>
+
+      <div style="display:flex;flex-direction:column;gap:6px">
+        <label style="font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--text3)">Status</label>
+        <select id="pr-status" style="background:var(--surface2);border:1px solid var(--border);border-radius:4px;padding:9px 12px;color:var(--text);font-size:13px;outline:none">
+          <option value="Paid">Paid</option>
+          <option value="Accrued">Accrued</option>
+        </select>
+      </div>
+
+    </div>
+
+    <div style="margin-top:16px;display:flex;gap:10px;justify-content:flex-end">
+      <button class="btn btn-primary" onclick="addPayroll()">+ Add Record</button>
+    </div>
+
+    <div id="msg" style="margin-top:12px;font-size:13px;display:none"></div>
+  </div>
+</div>
+
+<!-- PAYROLL TABLE -->
+<div class="table-wrap" style="margin-bottom:24px">
+  <div class="table-header">
+    <div class="table-title">All Payroll Records</div>
+  </div>
+  <table>
+    <thead><tr>
+      <th>Month</th>
+      <th>Staff Role</th>
+      <th>Department</th>
+      <th>Amount (EGP)</th>
+      <th>Status</th>
+    </tr></thead>
+    <tbody id="payroll-body">
+      <tr><td colspan="5" class="empty">Loading...</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- DEPARTMENT SUMMARY -->
+<div class="table-wrap">
+  <div class="table-header">
+    <div class="table-title">Department Cost Summary</div>
+    <span style="font-size:11px;color:var(--text3)" id="alloc-label">Actual sales mix</span>
+  </div>
+  <table>
+    <thead><tr>
+      <th>Department</th>
+      <th>Account</th>
+      <th>Total Salary</th>
+      <th id="th-veg">Vegetables</th>
+      <th id="th-drink">Drinks</th>
+    </tr></thead>
+    <tbody id="dept-summary"></tbody>
+  </table>
+</div>
+
+<script>
+const fmt = n => Number(n||0).toLocaleString('en-EG',{minimumFractionDigits:2,maximumFractionDigits:2});
+
+// Set current month
+document.getElementById('pr-month').value = new Date().toISOString().slice(0,7);
+
+const deptMap = {
+  'Restaurant Manager': { dept: 'Management', acc: '601' },
+  'Project Manager':    { dept: 'Management', acc: '601' },
+  'HR Manager​​​​​​​​​​​​​​​​
