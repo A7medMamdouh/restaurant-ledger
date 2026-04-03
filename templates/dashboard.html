@@ -1,0 +1,151 @@
+{% extends 'base.html' %}
+
+{% block title %}Dashboard{% endblock %}
+
+{% block content %}
+
+<!-- CARDS -->
+<div class="cards-grid">
+  <div class="card">
+    <div class="card-label">Today's Sales</div>
+    <div class="card-value accent mono" id="today-sales">0.00</div>
+    <div style="font-size:11px;color:var(--text3);margin-top:6px">EGP — All Categories</div>
+  </div>
+  <div class="card green">
+    <div class="card-label">Vegetables Sales</div>
+    <div class="card-value green mono" id="today-veg">0.00</div>
+    <div style="font-size:11px;color:var(--text3);margin-top:6px" id="veg-pct">0.0% of total</div>
+  </div>
+  <div class="card blue">
+    <div class="card-label">Drinks Sales</div>
+    <div class="card-value blue mono" id="today-drink">0.00</div>
+    <div style="font-size:11px;color:var(--text3);margin-top:6px" id="drink-pct">0.0% of total</div>
+  </div>
+  <div class="card red">
+    <div class="card-label">Today's Expenses</div>
+    <div class="card-value red mono" id="today-exp">0.00</div>
+    <div style="font-size:11px;color:var(--text3);margin-top:6px">EGP</div>
+  </div>
+</div>
+
+<!-- TWO COLUMNS -->
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:24px">
+
+  <!-- Recent Sales -->
+  <div class="table-wrap">
+    <div class="table-header">
+      <div class="table-title">Recent Sales</div>
+    </div>
+    <table>
+      <thead><tr>
+        <th>Date</th><th>Category</th><th>Amount</th><th>Payment</th>
+      </tr></thead>
+      <tbody id="recent-sales">
+        <tr><td colspan="4" class="empty">Loading...</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Recent Expenses -->
+  <div class="table-wrap">
+    <div class="table-header">
+      <div class="table-title">Recent Expenses</div>
+    </div>
+    <table>
+      <thead><tr>
+        <th>Date</th><th>Type</th><th>Amount</th>
+      </tr></thead>
+      <tbody id="recent-expenses">
+        <tr><td colspan="3" class="empty">Loading...</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+</div>
+
+<!-- COST ALLOCATION TABLE -->
+<div class="table-wrap">
+  <div class="table-header">
+    <div class="table-title">Cost Allocation</div>
+    <span style="font-size:11px;color:var(--text3)" id="alloc-subtitle">
+      Based on actual sales mix
+    </span>
+  </div>
+  <table>
+    <thead><tr>
+      <th>Cost Type</th>
+      <th>Total</th>
+      <th id="th-veg">Vegetables</th>
+      <th id="th-drink">Drinks</th>
+    </tr></thead>
+    <tbody id="alloc-body"></tbody>
+  </table>
+</div>
+
+<script>
+const fmt = n => Number(n||0).toLocaleString('en-EG',{minimumFractionDigits:2,maximumFractionDigits:2});
+const today = new Date().toISOString().split('T')[0];
+
+async function loadDashboard() {
+
+  // ── Load Sales ──
+  const salesRes = await fetch('/api/sales');
+  const sales = await salesRes.json();
+
+  const todaySales = sales.filter(s => s.date === today);
+  const vegToday = todaySales.filter(s => s.category === 'Vegetables').reduce((a,b) => a + b.amount, 0);
+  const drinkToday = todaySales.filter(s => s.category === 'Drinks').reduce((a,b) => a + b.amount, 0);
+  const totalToday = vegToday + drinkToday;
+
+  document.getElementById('today-sales').textContent = fmt(totalToday);
+  document.getElementById('today-veg').textContent = fmt(vegToday);
+  document.getElementById('today-drink').textContent = fmt(drinkToday);
+
+  // ── Actual % from ALL sales ──
+  const totalAll = sales.reduce((a,b) => a + b.amount, 0);
+  const vegAll = sales.filter(s => s.category === 'Vegetables').reduce((a,b) => a + b.amount, 0);
+  const drinkAll = sales.filter(s => s.category === 'Drinks').reduce((a,b) => a + b.amount, 0);
+  const vegPct = totalAll > 0 ? (vegAll / totalAll * 100).toFixed(1) : 0;
+  const drinkPct = totalAll > 0 ? (drinkAll / totalAll * 100).toFixed(1) : 0;
+
+  document.getElementById('veg-pct').textContent = vegPct + '% of total';
+  document.getElementById('drink-pct').textContent = drinkPct + '% of total';
+
+  // ── Recent Sales Table ──
+  const recentSales = sales.slice(0, 5);
+  document.getElementById('recent-sales').innerHTML = recentSales.length ?
+    recentSales.map(s => `
+      <tr>
+        <td class="mono">${s.date}</td>
+        <td><span class="badge ${s.category === 'Vegetables' ? 'badge-veg' : 'badge-drink'}">${s.category}</span></td>
+        <td class="mono positive">${fmt(s.amount)}</td>
+        <td>${s.payment}</td>
+      </tr>`).join('') :
+    '<tr><td colspan="4" class="empty">No sales yet</td></tr>';
+
+  // ── Load Expenses ──
+  const expRes = await fetch('/api/expenses');
+  const expenses = await expRes.json();
+
+  const expToday = expenses.filter(e => e.date === today).reduce((a,b) => a + b.amount, 0);
+  document.getElementById('today-exp').textContent = fmt(expToday);
+
+  const recentExp = expenses.slice(0, 5);
+  document.getElementById('recent-expenses').innerHTML = recentExp.length ?
+    recentExp.map(e => `
+      <tr>
+        <td class="mono">${e.date}</td>
+        <td>${e.type}</td>
+        <td class="mono negative">${fmt(e.amount)}</td>
+      </tr>`).join('') :
+    '<tr><td colspan="3" class="empty">No expenses yet</td></tr>';
+
+  // ── Cost Allocation ──
+  const vPct = totalAll > 0 ? vegAll / totalAll : 0;
+  const dPct = totalAll > 0 ? drinkAll / totalAll : 0;
+  const vLabel = totalAll > 0 ? vegPct + '%' : '—';
+  const dLabel = totalAll > 0 ? drinkPct + '%' : '—';
+
+  document.getElementById('alloc-subtitle').textContent =
+    totalAll > 0
+      ? `Actual sales mix — Vegetables ${vLabel} / Drinks ${dLabel}`
