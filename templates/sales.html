@@ -1,0 +1,158 @@
+{% extends 'base.html' %}
+
+{% block title %}Daily Sales{% endblock %}
+
+{% block content %}
+
+<!-- CARDS -->
+<div class="cards-grid" style="grid-template-columns:repeat(3,1fr)">
+  <div class="card green">
+    <div class="card-label">Total Vegetables Sales</div>
+    <div class="card-value green mono" id="total-veg">0.00</div>
+  </div>
+  <div class="card blue">
+    <div class="card-label">Total Drinks Sales</div>
+    <div class="card-value blue mono" id="total-drink">0.00</div>
+  </div>
+  <div class="card">
+    <div class="card-label">Grand Total</div>
+    <div class="card-value accent mono" id="total-all">0.00</div>
+  </div>
+</div>
+
+<!-- ADD SALE FORM -->
+<div class="table-wrap" style="margin-bottom:24px">
+  <div class="table-header">
+    <div class="table-title">Record New Sale</div>
+    <span style="font-size:11px;color:var(--text3)">Oracle POS</span>
+  </div>
+  <div style="padding:20px">
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:14px">
+
+      <div style="display:flex;flex-direction:column;gap:6px">
+        <label style="font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--text3)">Date</label>
+        <input type="date" id="s-date" style="background:var(--surface2);border:1px solid var(--border);border-radius:4px;padding:9px 12px;color:var(--text);font-size:13px;outline:none">
+      </div>
+
+      <div style="display:flex;flex-direction:column;gap:6px">
+        <label style="font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--text3)">Category</label>
+        <select id="s-cat" style="background:var(--surface2);border:1px solid var(--border);border-radius:4px;padding:9px 12px;color:var(--text);font-size:13px;outline:none">
+          <option value="Vegetables">Vegetables</option>
+          <option value="Drinks">Drinks</option>
+        </select>
+      </div>
+
+      <div style="display:flex;flex-direction:column;gap:6px">
+        <label style="font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--text3)">Amount (EGP)</label>
+        <input type="number" id="s-amount" placeholder="0.00" step="0.01" style="background:var(--surface2);border:1px solid var(--border);border-radius:4px;padding:9px 12px;color:var(--text);font-size:13px;outline:none">
+      </div>
+
+      <div style="display:flex;flex-direction:column;gap:6px">
+        <label style="font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--text3)">Payment Method</label>
+        <select id="s-payment" style="background:var(--surface2);border:1px solid var(--border);border-radius:4px;padding:9px 12px;color:var(--text);font-size:13px;outline:none">
+          <option value="Cash">Cash</option>
+          <option value="Card">Card</option>
+          <option value="Delivery App">Delivery App</option>
+        </select>
+      </div>
+
+      <div style="display:flex;flex-direction:column;gap:6px">
+        <label style="font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--text3)">Cashier</label>
+        <input type="text" id="s-cashier" placeholder="Name or shift" style="background:var(--surface2);border:1px solid var(--border);border-radius:4px;padding:9px 12px;color:var(--text);font-size:13px;outline:none">
+      </div>
+
+      <div style="display:flex;flex-direction:column;gap:6px">
+        <label style="font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--text3)">Description</label>
+        <input type="text" id="s-desc" placeholder="Items sold" style="background:var(--surface2);border:1px solid var(--border);border-radius:4px;padding:9px 12px;color:var(--text);font-size:13px;outline:none">
+      </div>
+
+    </div>
+
+    <div style="margin-top:16px;display:flex;gap:10px;justify-content:flex-end">
+      <button class="btn btn-primary" onclick="addSale()">+ Record Sale</button>
+    </div>
+
+    <!-- Message -->
+    <div id="msg" style="margin-top:12px;font-size:13px;display:none"></div>
+  </div>
+</div>
+
+<!-- SALES TABLE -->
+<div class="table-wrap">
+  <div class="table-header">
+    <div class="table-title">All Sales Transactions</div>
+  </div>
+  <table>
+    <thead><tr>
+      <th>Date</th>
+      <th>Category</th>
+      <th>Description</th>
+      <th>Amount (EGP)</th>
+      <th>Payment</th>
+      <th>Cashier</th>
+    </tr></thead>
+    <tbody id="sales-body">
+      <tr><td colspan="6" class="empty">Loading...</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<script>
+const fmt = n => Number(n||0).toLocaleString('en-EG',{minimumFractionDigits:2,maximumFractionDigits:2});
+
+// Set today's date automatically
+document.getElementById('s-date').value = new Date().toISOString().split('T')[0];
+
+async function loadSales() {
+  const res = await fetch('/api/sales');
+  const sales = await res.json();
+
+  // Calculate totals
+  const vegTotal = sales.filter(s => s.category === 'Vegetables').reduce((a,b) => a + b.amount, 0);
+  const drinkTotal = sales.filter(s => s.category === 'Drinks').reduce((a,b) => a + b.amount, 0);
+  document.getElementById('total-veg').textContent = fmt(vegTotal);
+  document.getElementById('total-drink').textContent = fmt(drinkTotal);
+  document.getElementById('total-all').textContent = fmt(vegTotal + drinkTotal);
+
+  // Fill table
+  document.getElementById('sales-body').innerHTML = sales.length ?
+    sales.map(s => `
+      <tr>
+        <td class="mono">${s.date}</td>
+        <td><span class="badge ${s.category === 'Vegetables' ? 'badge-veg' : 'badge-drink'}">${s.category}</span></td>
+        <td>${s.description || '—'}</td>
+        <td class="mono positive">${fmt(s.amount)}</td>
+        <td>${s.payment}</td>
+        <td>${s.cashier || '—'}</td>
+      </tr>`).join('') :
+    '<tr><td colspan="6" class="empty">No sales recorded yet</td></tr>';
+}
+
+async function addSale() {
+  const data = {
+    date:        document.getElementById('s-date').value,
+    category:    document.getElementById('s-cat').value,
+    amount:      parseFloat(document.getElementById('s-amount').value),
+    payment:     document.getElementById('s-payment').value,
+    cashier:     document.getElementById('s-cashier').value,
+    description: document.getElementById('s-desc').value
+  };
+
+  // Simple validation
+  if (!data.date || !data.amount) {
+    showMsg('Please fill date and amount', 'red');
+    return;
+  }
+
+  const res = await fetch('/api/sales', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data)
+  });
+
+  if (res.ok) {
+    showMsg('Sale recorded successfully ✓', 'green');
+    document.getElementById('s-amount').value = '';
+    document.getElementById('s-cashier').value = '';
+    document.getElementById('s-desc').value = '';
+    loadS​​​​​​​​​​​​​​​​
