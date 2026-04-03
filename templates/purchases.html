@@ -1,0 +1,116 @@
+{% extends 'base.html' %}
+
+{% block title %}Purchases{% endblock %}
+
+{% block content %}
+
+<!-- CARDS -->
+<div class="cards-grid" style="grid-template-columns:repeat(3,1fr)">
+  <div class="card">
+    <div class="card-label">Total Purchases</div>
+    <div class="card-value accent mono" id="p-total">0.00</div>
+  </div>
+  <div class="card red">
+    <div class="card-label">Outstanding AP</div>
+    <div class="card-value red mono" id="p-ap">0.00</div>
+  </div>
+  <div class="card green">
+    <div class="card-label">Paid to Suppliers</div>
+    <div class="card-value green mono" id="p-paid">0.00</div>
+  </div>
+</div>
+
+<!-- ADD PURCHASE FORM -->
+<div class="table-wrap" style="margin-bottom:24px">
+  <div class="table-header">
+    <div class="table-title">Add New Purchase</div>
+  </div>
+  <div style="padding:20px">
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:14px">
+
+      <div style="display:flex;flex-direction:column;gap:6px">
+        <label style="font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--text3)">Date</label>
+        <input type="date" id="p-date" style="background:var(--surface2);border:1px solid var(--border);border-radius:4px;padding:9px 12px;color:var(--text);font-size:13px;outline:none">
+      </div>
+
+      <div style="display:flex;flex-direction:column;gap:6px">
+        <label style="font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--text3)">Supplier Name</label>
+        <input type="text" id="p-supplier" placeholder="Supplier" style="background:var(--surface2);border:1px solid var(--border);border-radius:4px;padding:9px 12px;color:var(--text);font-size:13px;outline:none">
+      </div>
+
+      <div style="display:flex;flex-direction:column;gap:6px">
+        <label style="font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--text3)">Category</label>
+        <select id="p-cat" style="background:var(--surface2);border:1px solid var(--border);border-radius:4px;padding:9px 12px;color:var(--text);font-size:13px;outline:none">
+          <option value="Vegetables">Vegetables</option>
+          <option value="Drinks">Drinks</option>
+        </select>
+      </div>
+
+      <div style="display:flex;flex-direction:column;gap:6px">
+        <label style="font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--text3)">Amount (EGP)</label>
+        <input type="number" id="p-amount" placeholder="0.00" step="0.01" style="background:var(--surface2);border:1px solid var(--border);border-radius:4px;padding:9px 12px;color:var(--text);font-size:13px;outline:none">
+      </div>
+
+      <div style="display:flex;flex-direction:column;gap:6px">
+        <label style="font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--text3)">Status</label>
+        <select id="p-status" style="background:var(--surface2);border:1px solid var(--border);border-radius:4px;padding:9px 12px;color:var(--text);font-size:13px;outline:none">
+          <option value="Pending">Pending (AP)</option>
+          <option value="Paid">Paid</option>
+        </select>
+      </div>
+
+      <div style="display:flex;flex-direction:column;gap:6px">
+        <label style="font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--text3)">Notes</label>
+        <input type="text" id="p-notes" placeholder="Invoice #, notes" style="background:var(--surface2);border:1px solid var(--border);border-radius:4px;padding:9px 12px;color:var(--text);font-size:13px;outline:none">
+      </div>
+
+    </div>
+
+    <div style="margin-top:16px;display:flex;gap:10px;justify-content:flex-end">
+      <button class="btn btn-primary" onclick="addPurchase()">+ Add Purchase</button>
+    </div>
+
+    <div id="msg" style="margin-top:12px;font-size:13px;display:none"></div>
+  </div>
+</div>
+
+<!-- PURCHASES TABLE -->
+<div class="table-wrap">
+  <div class="table-header">
+    <div class="table-title">All Purchase Orders</div>
+  </div>
+  <table>
+    <thead><tr>
+      <th>Date</th>
+      <th>Supplier</th>
+      <th>Category</th>
+      <th>Amount (EGP)</th>
+      <th>Status</th>
+      <th>Notes</th>
+    </tr></thead>
+    <tbody id="purchases-body">
+      <tr><td colspan="6" class="empty">Loading...</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<script>
+const fmt = n => Number(n||0).toLocaleString('en-EG',{minimumFractionDigits:2,maximumFractionDigits:2});
+
+document.getElementById('p-date').value = new Date().toISOString().split('T')[0];
+
+async function loadPurchases() {
+  const res = await fetch('/api/purchases');
+  const purchases = await res.json();
+
+  // Cards
+  const total = purchases.reduce((a,b) => a + b.amount, 0);
+  const ap    = purchases.filter(p => p.status === 'Pending').reduce((a,b) => a + b.amount, 0);
+  const paid  = purchases.filter(p => p.status === 'Paid').reduce((a,b) => a + b.amount, 0);
+  document.getElementById('p-total').textContent = fmt(total);
+  document.getElementById('p-ap').textContent    = fmt(ap);
+  document.getElementById('p-paid').textContent  = fmt(paid);
+
+  // Table
+  document.getElementById('purchases-body').innerHTML = purchases.length ?
+    purchases.map(p => `
